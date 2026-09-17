@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PackCheck AI - Intelligent Metrology Platform</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script defer src="app.js"></script>
+</head>
+
+<body>
+
+<div class="app-container">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+
+    <div class="sidebar-header">
+       <div class="logo-icon">
+        <i class="fa-solid fa-qrcode"></i>
+           </div>
+
+        <div class="logo-text">
+            <h2>PackCheck AI</h2>
+            <span>Intelligent Metrology Platform</span>
+        </div>
+    </div>
+
+    <nav class="sidebar-nav">
+
+        <a href="#" class="nav-item active" data-view="dashboard">
+            <i class="fa-solid fa-chart-line"></i>
+            Dashboard Overview
+        </a>
+
+        <a href="#" class="nav-item" data-view="scan">
+            <i class="fa-solid fa-arrow-up-from-bracket"></i>
+            Scan Product
+            <span class="badge">AI</span>
+        </a>
+
+        <a href="#" class="nav-item" data-view="sandbox">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            Label Sandbox
+        </a>
+
+        <a href="#" class="nav-item" data-view="rules">
+            <i class="fa-solid fa-database"></i>
+            Rules Matrix
+        </a>
+
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="user-profile">
+            <i class="fa-regular fa-circle-user"></i>
+
+            <div>
+                <p>Inspector Acer</p>
+                <span>Local Metrology Dept</span>
+            </div>
+        </div>
+    </div>
+
+</aside>
+
+<!-- MAIN -->
+<main class="main-content">
+
+    <header class="top-header">
+
+        <div class="header-left">
+            <span>Standalone App:</span>
+            <span class="tag-green">LOCAL-CLIENT</span>
+        </div>
+
+        <button class="btn-primary" id="top-new-inspection">
+            <i class="fa-solid fa-plus"></i>
+            New Inspection
+        </button>
+
+    </header>
+
+    <div class="dashboard-scroll">
+
+        <!-- DASHBOARD -->
+        <section id="view-dashboard" class="app-view">
+
+            <div class="page-title">
+                <h1>Inspector Command Console</h1>
+                <p>Packaged commodity compliance & HealthLens dashboard.</p>
+            </div>
+
+            <div class="stats-grid">
+
+                <div class="stat-card">
+                    <h3>TOTAL SCANS</h3>
+                    <div class="value" id="stat-total">14</div>
+                    <div class="subtext text-green">
+                        <i class="fa-solid fa-check"></i>
+                        Standalone active
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <h3>AVERAGE COMPLIANCE</h3>
+                    <div class="value text-green" id="stat-avg">84%</div>
+                    <div class="subtext">Rating across history</div>
+                </div>
+
+                <div class="stat-card">
+                    <h3>CRITICAL ALERTS</h3>
+                    <div class="value text-red" id="stat-failed">2</div>
+                    <div class="subtext text-red">
+                        <i class="fa-solid fa-circle"></i>
+                        Active violations found
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <h3>AVERAGE HEALTH RATING</h3>
+                    <div class="value text-blue">68%</div>
+                    <div class="subtext">Nutritional average</div>
+                </div>
+
+            </div>
+
+            <div class="middle-grid">
+
+                <div class="card">
+                    <h3>INSPECTION VOLUME & SCORE TRENDS</h3>
+
+                    <div class="chart-container">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+
+                    <h3>COMMON VIOLATIONS</h3>
+
+                    <div class="violation-item">
+                        <div class="violation-info">
+                            <span>No Consumer Contact</span>
+                            <span class="text-red">45%</span>
+                        </div>
+
+                        <div class="progress-bar">
+                            <div class="fill bg-red" style="width:45%"></div>
+                        </div>
+                    </div>
+
+                    <div class="violation-item">
+                        <div class="violation-info">
+                            <span>MRP Stickers</span>
+                            <span class="text-orange">30%</span>
+                        </div>
+
+                        <div class="progress-bar">
+                            <div class="fill bg-orange" style="width:30%"></div>
+                        </div>
+                    </div>
+
+                    <div class="violation-item">
+                        <div class="violation-info">
+                            <span>Missing Net Wt Units</span>
+                            <span class="text-blue">20%</span>
+                        </div>
+
+                        <div class="progress-bar">
+                            <div class="fill bg-blue" style="width:20%"></div>
+                        </div>
+                    </div>
+
+                    <div class="violation-footer">
+                        Recalculated across local log audits
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="card table-card">
+
+                <h3>RECENT PACKAGE AUDITS</h3>
+
+                <div class="table-scroll">
+                    <table class="data-table">
+
+                        <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>TIMESTAMP</th>
+                            <th>PRODUCT NAME</th>
+                            <th>CATEGORY</th>
+                            <th>STATUS</th>
+                            <th>SCORE</th>
+                            <th>ACTION</th>
+                        </tr>
+                        </thead>
+
+                        <tbody id="history-body">
+
+                        <tr>
+                            <td class="text-blue">#FOD-9X42A</td>
+                            <td>01/09/2026, 10:30 AM</td>
+                            <td><strong>Organic Wheat Cookies</strong></td>
+                            <td>Food / Packaged Commodity</td>
+                            <td class="text-green">COMPLIANT</td>
+                            <td><strong>92%</strong></td>
+                            <td><button class="btn-outline">View</button></td>
+                        </tr>
+
+                        <tr>
+                            <td class="text-blue">#COS-9X42A</td>
+                            <td>22/08/2026, 02:15 PM</td>
+                            <td><strong>Aloe Vera Face Cream</strong></td>
+                            <td>Cosmetics</td>
+                            <td class="text-green">COMPLIANT</td>
+                            <td><strong>88%</strong></td>
+                            <td><button class="btn-outline">View</button></td>
+                        </tr>
+
+                        <tr>
+                            <td class="text-blue">#ERR-9X42A</td>
+                            <td>10/07/2026, 11:00 AM</td>
+                            <td><strong>Spicy Potato Chips</strong></td>
+                            <td>Food / Packaged Commodity</td>
+                            <td class="text-red">NON-COMPLIANT</td>
+                            <td><strong>45%</strong></td>
+                            <td><button class="btn-outline">View</button></td>
+                        </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- SCANNER -->
+        <section id="view-scan" class="app-view" style="display:none">
+
+            <div id="scanner-upload-container">
+
+                <div class="scanner-header">
+
+                    <div>
+                        <h1>Package Scanner</h1>
+                        <p class="subtitle">
+                            Upload one or more package panel photos,
+                            or select a preloaded demo mockup.
+                        </p>
+                    </div>
+
+                    <div class="demo-mockups">
+
+                        <button class="demo-btn active" data-demo="food">
+                            Demo 1 (Food)
+                        </button>
+
+                        <button class="demo-btn" data-demo="cosmetics">
+                            Demo 2 (Cosmetics)
+                        </button>
+
+                        <button class="demo-btn" data-demo="mismatch">
+                            Demo 3 (Mismatch)
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <div class="panel-grid">
+
+                    <div class="panel-card" data-panel="front">
+                        <span class="panel-name">FRONT PANEL</span>
+
+                        <div class="panel-upload-area">
+                            <div class="upload-icon-circle">
+                                <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                            </div>
+
+                            <span class="upload-link">Click to upload</span>
+                        </div>
+
+                        <input type="file" accept="image/*" class="panel-input" hidden>
+                    </div>
+
+                    <div class="panel-card" data-panel="back">
+                        <span class="panel-name">BACK PANEL</span>
+
+                        <div class="panel-upload-area">
+                            <div class="upload-icon-circle">
+                                <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                            </div>
+
+                            <span class="upload-link">Click to upload</span>
+                        </div>
+
+                        <input type="file" accept="image/*" class="panel-input" hidden>
+                    </div>
+
+                    <div class="panel-card" data-panel="left">
+                        <span class="panel-name">LEFT PANEL</span>
+
+                        <div class="panel-upload-area">
+                            <div class="upload-icon-circle">
+                                <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                            </div>
+
+                            <span class="upload-link">Click to upload</span>
+                        </div>
+
+                        <input type="file" accept="image/*" class="panel-input" hidden>
+                    </div>
+
+                    <div class="panel-card" data-panel="right">
+                        <span class="panel-name">RIGHT PANEL</span>
+
+                        <div class="panel-upload-area">
+                            <div class="upload-icon-circle">
+                                <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                            </div>
+
+                            <span class="upload-link">Click to upload</span>
+                        </div>
+
+                        <input type="file" accept="image/*" class="panel-input" hidden>
+                    </div>
+
+                </div>
+
+                <div class="audit-action-row">
+                    <button class="btn-audit" id="run-audit-btn">
+                        Start Inspection
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+
+            </div>
+
+            <div id="pipeline-container" style="display:none"></div>
+
+        </section>
+
+        <!-- RESULTS -->
+        <section id="view-results" class="app-view" style="display:none"></section>
+
+       <!-- VIEW: LABEL SANDBOX -->
+<div id="view-sandbox" class="app-view" style="display:none;">
+
+    <div class="page-title">
+        <h1>Label Sandbox Simulator</h1>
+        <p>Audit label textual configurations prior to manufacturing print cycles.</p>
+    </div>
+
+    <div class="sandbox-grid">
+
+        <!-- CONFIGURE ATTRIBUTES -->
+        <div class="card sandbox-config">
+
+            <h3 class="section-heading">CONFIGURE ATTRIBUTES</h3>
+
+            <div class="form-group">
+                <label>Commodity Type</label>
+                <select id="sb-type" class="sandbox-input">
+                    <option>Food Product (FSSAI License)</option>
+                    <option>Cosmetics / Beauty Cream</option>
+                    <option>Electronics (Specifications)</option>
+                    <option>General Commodities</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Product Name</label>
+                <input id="sb-product-name" class="sandbox-input" placeholder="Enter product name">
+            </div>
+
+            <div class="form-group">
+                <label>MRP</label>
+                <input id="sb-mrp" class="sandbox-input" placeholder="₹ 99.00">
+            </div>
+
+            <div class="form-group">
+                <label>Net Quantity</label>
+                <input id="sb-net-qty" class="sandbox-input" placeholder="100 g / 500 ml">
+            </div>
+
+            <div class="form-group">
+                <label>Manufacture Date</label>
+                <input id="sb-mfg-date" class="sandbox-input" placeholder="DD/MM/YYYY">
+            </div>
+
+            <div class="form-group">
+                <label>Manufacturer Details</label>
+                <textarea id="sb-mfg-details" class="sandbox-input" rows="3"
+                    placeholder="Manufacturer name and address"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Consumer Care</label>
+                <input id="sb-consumer-care" class="sandbox-input"
+                    placeholder="Helpline / Email">
+            </div>
+
+            <div class="form-group">
+                <label>FSSAI License</label>
+                <input id="sb-fssai" class="sandbox-input"
+                    placeholder="FSSAI License Number">
+            </div>
+
+            <div class="form-group">
+                <label>Ingredients</label>
+                <textarea id="sb-ingredients" class="sandbox-input" rows="2"
+                    placeholder="List ingredients"></textarea>
+            </div>
+
+            <div class="nutrition-grid">
+
+                <div class="form-group">
+                    <label>Energy</label>
+                    <input id="sb-energy" class="sandbox-input" placeholder="kcal">
+                </div>
+
+                <div class="form-group">
+                    <label>Sugar</label>
+                    <input id="sb-sugar" class="sandbox-input" placeholder="g">
+                </div>
+
+                <div class="form-group">
+                    <label>Sat Fat</label>
+                    <input id="sb-sat-fat" class="sandbox-input" placeholder="g">
+                </div>
+
+                <div class="form-group">
+                    <label>Sodium</label>
+                    <input id="sb-sodium" class="sandbox-input" placeholder="mg">
+                </div>
+
+                <div class="form-group">
+                    <label>Protein</label>
+                    <input id="sb-protein" class="sandbox-input" placeholder="g">
+                </div>
+
+                <div class="form-group">
+                    <label>Fibre</label>
+                    <input id="sb-fibre" class="sandbox-input" placeholder="g">
+                </div>
+
+            </div>
+
+            <button type="button"
+                    class="btn-primary w-full mt-4"
+                    id="simulate-score-btn">
+
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                Simulate Compliance Score
+
+            </button>
+
+        </div>
+
+        <!-- SIMULATOR -->
+        <div class="card sandbox-result-card">
+
+            <h2>Sandbox Simulator</h2>
+
+            <p class="sandbox-description">
+                Adjust fields and simulate checks to update score rates.
+            </p>
+
+            <div class="score-card">
+
+                <div>
+                    <span class="metric-label">COMPLIANCE SCORE</span>
+                    <div class="score-value" id="sb-comp-score">100%</div>
+                </div>
+
+                <strong id="sb-comp-status" class="text-green">
+                    COMPLIANT
+                </strong>
+
+            </div>
+
+            <div id="sb-verification-list" class="verification-list"></div>
+
+        </div>
+
+    </div>
+
+</div>
+        <!-- RULES -->
+        <section id="view-rules" class="app-view" style="display:none">
+
+            <div class="page-title">
+                <h1>Legal Rules Matrix</h1>
+                <p>Packaged Commodities Regulations Reference.</p>
+            </div>
+
+            <div class="card rules-card">
+
+                <ul>
+
+                    <li>
+                        <strong>LEGAL-01:</strong>
+                        Mandatory declaration of Generic or Common Name.
+                    </li>
+
+                    <li>
+                        <strong>LEGAL-02:</strong>
+                        Name and full address of Manufacturer / Packer / Importer.
+                    </li>
+
+                    <li>
+                        <strong>LEGAL-03:</strong>
+                        Correct Net Quantity units.
+                    </li>
+
+                    <li>
+                        <strong>LEGAL-04:</strong>
+                        Maximum Retail Price declaration including taxes.
+                    </li>
+
+                    <li>
+                        <strong>LEGAL-05:</strong>
+                        Consumer Care contact details / Helpline.
+                    </li>
+
+                </ul>
+
+            </div>
+
+        </section>
+
+    </div>
+</main>
+
+</div>
+
+</body>
+</html>
