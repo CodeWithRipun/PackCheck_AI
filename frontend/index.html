@@ -1,1074 +1,550 @@
-const $=id=>document.getElementById(id);
-
-const escapeHtml=v=>v==null?"":String(v)
-.replace(/&/g,"&amp;")
-.replace(/</g,"&lt;")
-.replace(/>/g,"&gt;")
-.replace(/"/g,"&quot;")
-.replace(/'/g,"&#039;");
-
-document.addEventListener("DOMContentLoaded",()=>{
-    initNavigation();
-    initChart();
-    loadDashboardData();
-    initScanner();
-    initSandbox();
-    initGlobalEvents();
-});
-
-/* NAVIGATION */
-function initNavigation(){
-    document.querySelectorAll(".sidebar-nav .nav-item").forEach(item=>{
-        item.onclick=e=>{
-            e.preventDefault();
-            switchView(item.dataset.view);
-        };
-    });
-
-    $("top-new-inspection")?.addEventListener(
-        "click",
-        ()=>switchView("scan")
-    );
-}
-
-function switchView(name){
-    document.querySelectorAll(".sidebar-nav .nav-item")
-    .forEach(x=>x.classList.toggle("active",x.dataset.view===name));
-
-    document.querySelectorAll(".app-view").forEach(v=>{
-        v.style.display=v.id===`view-${name}`?"block":"none";
-    });
-}
-
-/* CHART */
-function initChart(){
-    const c=$("trendChart");
-    if(!c||typeof Chart==="undefined")return;
-
-    new Chart(c,{
-        type:"line",
-        data:{
-            labels:["Mon","Tue","Wed","Thu","Fri"],
-            datasets:[{
-                label:"Score Trends",
-                data:[75,82,90,85,92],
-                borderColor:"#A855F7",
-                backgroundColor:"rgba(168,85,247,.12)",
-                fill:true,
-                tension:.3
-            }]
-        },
-        options:{
-            responsive:true,
-            maintainAspectRatio:false,
-            plugins:{legend:{display:false}},
-            scales:{
-                x:{
-                    ticks:{color:"#A1A1AA"},
-                    grid:{color:"#3F3F4655"}
-                },
-                y:{
-                    ticks:{color:"#A1A1AA"},
-                    grid:{color:"#3F3F4655"}
-                }
-            }
-        }
-    });
-}
-
-/* GLOBAL */
-function initGlobalEvents(){
-    $("ask-guide-btn")?.addEventListener("click",()=>{
-        alert("PackSure Guide AI is currently running in local offline mode.");
-    });
-}
-
-/* DASHBOARD */
-async function loadDashboardStats() {
-    try {
-        const response = await fetch("/api/v1/scans?limit=1000");
-
-        if (!response.ok) {
-            throw new Error("Failed to load scan history");
-        }
-
-        const data = await response.json();
-
-        const scans = Array.isArray(data)
-            ? data
-            : data.scans || data.items || [];
-
-        updateDashboardStats(scans);
-
-    } catch (error) {
-        console.error("Dashboard statistics error:", error);
-    }
-}
-
-
-function updateDashboardStats(scans) {
-
-    const totalElement = document.getElementById("stat-total");
-    const averageElement = document.getElementById("stat-avg");
-    const failedElement = document.getElementById("stat-failed");
-    const healthElement = document.getElementById("stat-health");
-
-    // TOTAL SCANS
-    const total = scans.length;
-
-    // COMPLIANCE SCORES
-    const scores = scans
-        .map(scan =>
-            Number(
-                scan.compliance_score ??
-                scan.compliance ??
-                scan.score ??
-                scan.overall_score
-            )
-        )
-        .filter(score => Number.isFinite(score));
-
-    const average = scores.length
-        ? Math.round(
-            scores.reduce((sum, score) => sum + score, 0) /
-            scores.length
-        )
-        : 0;
-
-    // FAILED SCANS
-    const failed = scans.filter(scan => {
-
-        const status = String(
-            scan.status ??
-            scan.result ??
-            scan.overall_status ??
-            ""
-        ).toUpperCase();
-
-        return (
-            status === "FAIL" ||
-            status === "FAILED" ||
-            status === "NON-COMPLIANT"
-        );
-
-    }).length;
-
-    // UPDATE TOTAL
-    if (totalElement) {
-        totalElement.textContent = total;
-    }
-
-    // UPDATE AVERAGE
-    if (averageElement) {
-        averageElement.textContent = `${average}%`;
-    }
-
-    // UPDATE FAILED
-    if (failedElement) {
-        failedElement.textContent = failed;
-    }
-
-    // HEALTH RATING
-    if (healthElement) {
-
-        const healthScores = scans
-            .map(scan =>
-                Number(
-                    scan.health_rating ??
-                    scan.health_score ??
-                    scan.nutritional_score
-                )
-            )
-            .filter(score => Number.isFinite(score));
-
-        if (healthScores.length) {
-
-            const healthAverage = Math.round(
-                healthScores.reduce((a, b) => a + b, 0) /
-                healthScores.length
-            );
-
-            healthElement.textContent =
-                `${healthAverage}%`;
-        }
-    }
-}
-
-/* SCANNER */
-function initScanner(){
-    const cards=document.querySelectorAll(".panel-card");
-    const audit=$("run-audit-btn");
-
-    if(!audit)return;
-
-    let files={},demo=true;
-
-    cards.forEach(card=>{
-        const input=card.querySelector(".panel-input");
-        const link=card.querySelector(".upload-link");
-
-        if(!input)return;
-
-        card.onclick=()=>input.click();
-
-        input.onchange=e=>{
-            const file=e.target.files?.[0];
-
-            if(!file)return;
-
-            files[card.dataset.panel]=file;
-
-            if(link){
-                link.textContent=file.name;
-                link.style.color="#A855F7";
-            }
-
-            demo=false;
-        };
-    });
-
-    document.querySelectorAll(".demo-btn").forEach(btn=>{
-        btn.onclick=e=>{
-            e.stopPropagation();
-
-            document.querySelectorAll(".demo-btn")
-            .forEach(x=>x.classList.remove("active"));
-
-            btn.classList.add("active");
-
-            demo=true;
-            files={};
-
-            document.querySelectorAll(".upload-link")
-            .forEach(x=>{
-                x.textContent="Click to upload";
-                x.style.color="";
-            });
-        };
-    });
-
-    audit.onclick=async()=>{
-        if(!demo&&!Object.keys(files).length){
-            alert("Please select panel images or pick a demo mockup to run audit.");
-            return;
-        }
-
-        const upload=$("scanner-upload-container");
-        const pipe=$("pipeline-container");
-
-        if(!upload||!pipe)return;
-
-        upload.style.display="none";
-        pipe.style.display="block";
-
-        const stepText=[
-            "Simulating client canvas contrast parameters...",
-            "Accessing predefined character arrays...",
-            "Extracting metrology weight templates...",
-            "Validating against client rule configurations...",
-            "Comparing cross-panel net weight indices...",
-            "Compiling final metrology score dial..."
-        ];
-
-        pipe.innerHTML=`
-            <div class="pipeline-screen">
-
-                <div class="spinner-container">
-                    <div class="pipeline-spinner"></div>
-                    <i class="fa-solid fa-shield-halved spinner-icon"></i>
-                </div>
-
-                <h2>LOCAL WEB PIPELINE RUNNING</h2>
-
-                <p class="pipeline-subtitle">
-                    Performing metrology regex structuring and verification...
-                </p>
-
-                <div class="pipeline-card">
-
-                    <ul class="pipeline-steps" id="pipeline-steps">
-
-                        ${stepText.map((x,i)=>`
-                            <li class="step ${i===0?"active":""}">
-                                <span>${i+1}. ${x}</span>
-
-                                <span class="status ${i===0?"status-running":"status-pending"}">
-                                    ${i===0?"RUNNING":"PENDING"}
-                                </span>
-                            </li>
-                        `).join("")}
-
-                    </ul>
-
-                </div>
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PackCheck AI - Intelligent Metrology Platform</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="style.css">
+
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script defer src="app.js"></script>
+</head>
+
+<body>
+
+<div class="app-container">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+
+    <div class="sidebar-header">
+       <div class="logo-icon">
+        <i class="fa-solid fa-qrcode"></i>
+           </div>
+
+        <div class="logo-text">
+            <h2>PackCheck AI</h2>
+            <span>Intelligent Metrology Platform</span>
+        </div>
+    </div>
+
+    <nav class="sidebar-nav">
+
+        <a href="#" class="nav-item active" data-view="dashboard">
+            <i class="fa-solid fa-chart-line"></i>
+            Dashboard Overview
+        </a>
+
+        <a href="#" class="nav-item" data-view="scan">
+            <i class="fa-solid fa-arrow-up-from-bracket"></i>
+            Scan Product
+            <span class="badge">AI</span>
+        </a>
+
+        <a href="#" class="nav-item" data-view="sandbox">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            Label Sandbox
+        </a>
+
+        <a href="#" class="nav-item" data-view="rules">
+            <i class="fa-solid fa-database"></i>
+            Rules Matrix
+        </a>
+
+    </nav>
+
+    <div class="sidebar-footer">
+        <div class="user-profile">
+            <i class="fa-regular fa-circle-user"></i>
+
+            <div>
+                <p>Inspector Acer</p>
+                <span>Local Metrology Dept</span>
             </div>
-        `;
-
-        const steps=document.querySelectorAll("#pipeline-steps .step");
-
-        let n=0;
-
-        const timer=setInterval(()=>{
-            if(n>=steps.length){
-                clearInterval(timer);
-                return;
-            }
-
-            const status=steps[n].querySelector(".status");
-
-            status.textContent="PASS";
-            status.className="status status-pass";
-
-            n++;
-
-            if(n<steps.length){
-                const next=steps[n].querySelector(".status");
-
-                next.textContent="RUNNING";
-                next.className="status status-running";
-
-                steps[n].classList.add("active");
-            }
-        },500);
-
-        let result;
-
-        try{
-            const form=new FormData();
-
-            if(demo){
-                form.append("demo","true");
-            }else{
-                Object.values(files)
-                .forEach(f=>form.append("file",f));
-            }
-
-            const res=await fetch("/api/v1/scan",{
-                method:"POST",
-                body:form
-            });
-
-            if(!res.ok)throw new Error("offline");
-
-            result=await res.json();
-
-        }catch{
-            console.log("Backend offline. Using local demo data.");
-            result=localResult(demo,files);
-        }
-
-        setTimeout(()=>{
-            clearInterval(timer);
-
-            pipe.style.display="none";
-            upload.style.display="block";
-
-            renderAuditResults(result,files);
-            switchView("results");
-        },2200);
-    };
-}
-
-/* LOCAL RESULTS */
-function localResult(demo,files){
-
-    let name="Organic Wheat Cookies",
-        score=92,
-        weight="150 g",
-        mrp="₹ 85.00",
-        date="01 SEP 2026",
-        prefix="FOD",
-        image="https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=1200&q=80";
-
-    if(demo){
-
-        const type=document.querySelector(
-            ".demo-btn.active"
-        )?.dataset.demo;
-
-        if(type==="cosmetics"){
-            name="Aloe Vera Face Cream";
-            score=88;
-            weight="50 ml";
-            mrp="₹ 299.00";
-            date="22 AUG 2026";
-            prefix="COS";
-        }
-
-        if(type==="mismatch"){
-            name="Spicy Potato Chips (Missing Weight)";
-            score=45;
-            weight="Missing / Not Found";
-            mrp="₹ 20.00";
-            date="10 JUL 2026";
-            prefix="ERR";
-        }
-
-    }else{
-
-        const f=Object.values(files)[0];
-
-        if(f){
-
-            const n=f.name.toLowerCase();
-
-            name=f.name
-                .replace(/\.[^/.]+$/,"")
-                .replace(/[-_]/g," ");
-
-            prefix="UPL";
-            image=URL.createObjectURL(f);
-
-            if(/cookie|wheat|demo1|image1|food/.test(n)){
-
-                name="Organic Wheat Cookies";
-                score=92;
-                weight="150 g";
-                mrp="₹ 85.00";
-                date="01 SEP 2026";
-                prefix="FOD";
-
-            }else if(/cream|aloe|face|demo2|image2|pic2|upload2|cosmetic/.test(n)){
-
-                name="Aloe Vera Face Cream";
-                score=88;
-                weight="50 ml";
-                mrp="₹ 299.00";
-                date="22 AUG 2026";
-                prefix="COS";
-
-            }else if(/chip|spicy|fail|demo3|image3|pic3|upload3|mismatch/.test(n)){
-
-                name="Spicy Potato Chips";
-                score=45;
-                weight="Missing / Not Found";
-                mrp="₹ 20.00";
-                date="10 JUL 2026";
-                prefix="ERR";
-
-            }else if(/milk|water|liquid/.test(n)){
-
-                score=95;
-                weight="1 Litre";
-                mrp="₹ 60.00";
-                date="12 SEP 2026";
-
-            }else{
-
-                name="Organic Wheat Cookies";
-                score=92;
-                weight="150 g";
-                mrp="₹ 85.00";
-                date="01 SEP 2026";
-            }
-        }
-    }
-
-    return{
-        product_name:name,
-        score,
-        audit_id:`${prefix}-9X42A`,
-        image_url:image,
-        extracted:{
-            "Net Weight":weight,
-            "MRP":mrp,
-            "Mfg Date":date
-        }
-    };
-}
-
-/* RESULTS */
-function renderAuditResults(data,files={}){
-
-    const box=$("view-results");
-
-    if(!box)return;
-
-    const uploaded=Object.values(files);
-
-    const image=uploaded.length
-        ?URL.createObjectURL(uploaded[0])
-        :(data?.image_url||
-          "https://images.unsplash.com/photo-1558961363-fa8fdf82db35?auto=format&fit=crop&w=1200&q=80");
-
-    const name=data?.product_name||"Organic Wheat Cookies";
-    const score=Number(data?.score??92);
-
-    const status=
-        score>=80
-        ?"COMPLIANT"
-        :score>=50
-        ?"MODERATE"
-        :"NON-COMPLIANT";
-
-    const gauge=
-        score>=80
-        ?"gauge-green"
-        :score>=50
-        ?"gauge-orange"
-        :"gauge-red";
-
-    const text=
-        score>=80
-        ?"text-green"
-        :score>=50
-        ?"text-orange"
-        :"text-red";
-
-    const weight=
-        data?.extracted?.["Net Weight"]||"150 g";
-
-    const mrp=
-        data?.extracted?.["MRP"]||"₹ 85.00";
-
-    const date=
-        data?.extracted?.["Mfg Date"]||"01 SEP 2026";
-
-    const audit=
-        data?.audit_id||
-        `FOD-${Math.random().toString(36).slice(2,7).toUpperCase()}`;
-
-    const search=
-        (name+" "+JSON.stringify(data?.extracted||""))
-        .toLowerCase();
-
-    let diagnosis=
-        "Contains whole grain wheat fiber. Compliant with legal packaging standards.";
-
-    if(/cream|aloe|cosmetic/.test(search)){
-        diagnosis=
-        "Topical formulation. Meets Legal Metrology cosmetic labeling norms.";
-    }
-
-    if(/chip|missing/.test(search)||score<50){
-        diagnosis=
-        "CRITICAL NON-COMPLIANCE: Missing mandatory Net Weight unit declaration.";
-    }
-
-    box.innerHTML=`
-
-        <div class="audit-results-view">
-
-            <div class="results-header">
-
-                <div>
-
-                    <div class="title-row">
-
-                        <h2>${escapeHtml(name)}</h2>
-
-                        <span class="badge-tag">
-                            Packaged Commodity (Legal Metrology)
-                        </span>
-
+        </div>
+    </div>
+
+</aside>
+
+<!-- MAIN -->
+<main class="main-content">
+
+    <header class="top-header">
+
+        <div class="header-left">
+            <span>Standalone App:</span>
+            <span class="tag-green">LOCAL-CLIENT</span>
+        </div>
+
+        <button class="btn-primary" id="top-new-inspection">
+            <i class="fa-solid fa-plus"></i>
+            New Inspection
+        </button>
+
+    </header>
+
+    <div class="dashboard-scroll">
+
+        <!-- DASHBOARD -->
+        <section id="view-dashboard" class="app-view">
+
+            <div class="page-title">
+                <h1>Inspector Command Console</h1>
+                <p>Packaged commodity compliance & HealthLens dashboard.</p>
+            </div>
+
+            <div class="stats-grid">
+
+                <div class="stat-card">
+    <h3>TOTAL SCANS</h3>
+    <div class="value" id="stat-total">0</div>
+    <div class="subtext text-green">
+        <i class="fa-solid fa-check"></i>
+        Standalone active
+    </div>
+</div>
+
+<div class="stat-card">
+    <h3>AVERAGE COMPLIANCE</h3>
+    <div class="value text-green" id="stat-avg">0%</div>
+    <div class="subtext">
+        Rating across history
+    </div>
+</div>
+
+<div class="stat-card">
+    <h3>CRITICAL ALERTS</h3>
+    <div class="value text-red" id="stat-failed">0</div>
+    <div class="subtext text-red">
+        <i class="fa-solid fa-circle"></i>
+        Active violations found
+    </div>
+</div>
+
+<div class="stat-card">
+    <h3>AVERAGE HEALTH RATING</h3>
+    <div class="value text-blue" id="stat-health">0%</div>
+    <div class="subtext">
+        Nutritional average
+    </div>
+</div>
+
+            <div class="middle-grid">
+
+                <div class="card">
+                    <h3>INSPECTION VOLUME & SCORE TRENDS</h3>
+
+                    <div class="chart-container">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+
+                    <h3>COMMON VIOLATIONS</h3>
+
+                    <div class="violation-item">
+                        <div class="violation-info">
+                            <span>No Consumer Contact</span>
+                            <span class="text-red">45%</span>
+                        </div>
+
+                        <div class="progress-bar">
+                            <div class="fill bg-red" style="width:45%"></div>
+                        </div>
                     </div>
 
-                    <p class="meta-info">
-                        Audit: ${escapeHtml(audit)}
-                        |
-                        Timestamp: ${new Date().toLocaleString()}
-                    </p>
+                    <div class="violation-item">
+                        <div class="violation-info">
+                            <span>MRP Stickers</span>
+                            <span class="text-orange">30%</span>
+                        </div>
 
-                </div>
+                        <div class="progress-bar">
+                            <div class="fill bg-orange" style="width:30%"></div>
+                        </div>
+                    </div>
 
-                <div class="header-actions">
+                    <div class="violation-item">
+                        <div class="violation-info">
+                            <span>Missing Net Wt Units</span>
+                            <span class="text-blue">20%</span>
+                        </div>
 
-                    <button class="btn-secondary" id="print-report-btn">
-                        <i class="fa-solid fa-download"></i>
-                        Print Report (PDF)
-                    </button>
+                        <div class="progress-bar">
+                            <div class="fill bg-blue" style="width:20%"></div>
+                        </div>
+                    </div>
 
-                    <button class="btn-accent" id="inspect-another-btn">
-                        Inspect Another
-                    </button>
+                    <div class="violation-footer">
+                        Recalculated across local log audits
+                    </div>
 
                 </div>
 
             </div>
 
-            <div class="metrics-grid">
+            <div class="card table-card">
 
-                <div class="metric-card">
+                <h3>RECENT PACKAGE AUDITS</h3>
+
+                <div class="table-scroll">
+                    <table class="data-table">
+
+                        <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>TIMESTAMP</th>
+                            <th>PRODUCT NAME</th>
+                            <th>CATEGORY</th>
+                            <th>STATUS</th>
+                            <th>SCORE</th>
+                            <th>ACTION</th>
+                        </tr>
+                        </thead>
+
+                        <tbody id="history-body">
+
+                        <tr>
+                            <td class="text-blue">#FOD-9X42A</td>
+                            <td>01/09/2026, 10:30 AM</td>
+                            <td><strong>Organic Wheat Cookies</strong></td>
+                            <td>Food / Packaged Commodity</td>
+                            <td class="text-green">COMPLIANT</td>
+                            <td><strong>92%</strong></td>
+                            <td><button class="btn-outline">View</button></td>
+                        </tr>
+
+                        <tr>
+                            <td class="text-blue">#COS-9X42A</td>
+                            <td>22/08/2026, 02:15 PM</td>
+                            <td><strong>Aloe Vera Face Cream</strong></td>
+                            <td>Cosmetics</td>
+                            <td class="text-green">COMPLIANT</td>
+                            <td><strong>88%</strong></td>
+                            <td><button class="btn-outline">View</button></td>
+                        </tr>
+
+                        <tr>
+                            <td class="text-blue">#ERR-9X42A</td>
+                            <td>10/07/2026, 11:00 AM</td>
+                            <td><strong>Spicy Potato Chips</strong></td>
+                            <td>Food / Packaged Commodity</td>
+                            <td class="text-red">NON-COMPLIANT</td>
+                            <td><strong>45%</strong></td>
+                            <td><button class="btn-outline">View</button></td>
+                        </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+
+        </section>
+
+        <!-- SCANNER -->
+        <section id="view-scan" class="app-view" style="display:none">
+
+            <div id="scanner-upload-container">
+
+                <div class="scanner-header">
 
                     <div>
-                        <span class="metric-label">
-                            COMPLIANCE SCORE
-                        </span>
-
-                        <h3 class="${text}">
-                            ${status}
-                        </h3>
-                    </div>
-
-                    <div class="gauge-circle ${gauge}">
-                        ${score}%
-                    </div>
-
-                </div>
-
-                <div class="metric-card">
-
-                    <div>
-                        <span class="metric-label">
-                            METROLOGY RATING
-                        </span>
-
-                        <h3 class="text-green">
-                            PASSED
-                        </h3>
-                    </div>
-
-                    <div class="gauge-circle gauge-green">
-                        90%
-                    </div>
-
-                </div>
-
-            </div>
-
-            <div class="results-tabs">
-
-                <button class="tab-btn active" data-tab="overview">
-                    Overview
-                </button>
-
-                <button class="tab-btn" data-tab="healthlens">
-                    HealthLens
-                </button>
-
-                <button class="tab-btn" data-tab="alternatives">
-                    Better Alternatives
-                </button>
-
-            </div>
-
-            <div class="results-body" id="overview-section">
-
-                <div class="digital-twin-card">
-
-                    <div class="card-title-bar">
-
-                        <h3>PACKAGE DIGITAL TWIN</h3>
-
-                        <div class="toggle-group">
-
-                            <button
-                                class="toggle-btn active"
-                                id="twin-front-btn">
-                                Front
-                            </button>
-
-                            <button
-                                class="toggle-btn"
-                                id="twin-back-btn">
-                                Back
-                            </button>
-
-                        </div>
-
-                    </div>
-
-                    <div class="image-preview-wrapper">
-
-                        <img
-                            id="twin-img"
-                            src="${image}"
-                            alt="${escapeHtml(name)}"
-                            class="twin-img">
-
-                    </div>
-
-                    <p class="twin-footnote">
-                        <i class="fa-solid fa-circle-info"></i>
-                        High-definition inspection mode active.
-                    </p>
-
-                </div>
-
-                <div class="insights-card">
-
-                    <div class="card-title-bar">
-
-                        <h3>
-                            EXTRACTED METROLOGY DECLARATIONS
-                        </h3>
-
-                    </div>
-
-                    <div class="insights-grid">
-
-                        <div class="info-box">
-                            <span class="info-label">
-                                PRODUCT NAME
-                            </span>
-                            <strong>
-                                ${escapeHtml(name)}
-                            </strong>
-                        </div>
-
-                        <div class="info-box">
-
-                            <span class="info-label">
-                                DECLARED MRP
-                            </span>
-
-                            <strong class="text-green"
-                                    style="font-size:18px">
-                                ${escapeHtml(mrp)}
-                            </strong>
-
-                        </div>
-
-                        <div class="info-box">
-
-                            <span class="info-label">
-                                NET QUANTITY
-                            </span>
-
-                            <strong>
-                                ${escapeHtml(weight)}
-                            </strong>
-
-                        </div>
-
-                        <div class="info-box">
-
-                            <span class="info-label">
-                                MFG DATE
-                            </span>
-
-                            <strong>
-                                ${escapeHtml(date)}
-                            </strong>
-
-                        </div>
-
-                    </div>
-
-                    <div class="info-box diagnosis-box">
-
-                        <span class="info-label">
-                            RULE EVALUATION REMARKS
-                        </span>
-
-                        <p>
-                            ${escapeHtml(diagnosis)}
+                        <h1>Package Scanner</h1>
+                        <p class="subtitle">
+                            Upload one or more package panel photos,
+                            or select a preloaded demo mockup.
                         </p>
+                    </div>
+
+                    <div class="demo-mockups">
+
+                        <button class="demo-btn active" data-demo="food">
+                            Demo 1 (Food)
+                        </button>
+
+                        <button class="demo-btn" data-demo="cosmetics">
+                            Demo 2 (Cosmetics)
+                        </button>
+
+                        <button class="demo-btn" data-demo="mismatch">
+                            Demo 3 (Mismatch)
+                        </button>
 
                     </div>
 
                 </div>
 
-            </div>
+                <div class="panel-grid">
 
-            ${alternativeHTML()}
+                    <div class="panel-card" data-panel="front">
+                        <span class="panel-name">FRONT PANEL</span>
 
-        </div>
-    `;
-
-    $("inspect-another-btn")?.addEventListener(
-        "click",
-        ()=>switchView("scan")
-    );
-
-    $("print-report-btn")?.addEventListener(
-        "click",
-        ()=>window.print()
-    );
-
-    const tabs=box.querySelectorAll(".tab-btn");
-
-    tabs.forEach(t=>{
-        t.onclick=()=>{
-
-            tabs.forEach(x=>x.classList.remove("active"));
-            t.classList.add("active");
-
-            if(t.dataset.tab==="overview"){
-                $("overview-section")?.scrollIntoView({
-                    behavior:"smooth"
-                });
-            }
-
-            if(t.dataset.tab==="alternatives"){
-                $("better-alternatives-section")?.scrollIntoView({
-                    behavior:"smooth"
-                });
-            }
-
-        };
-    });
-
-    $("twin-front-btn")?.addEventListener("click",()=>{
-        $("twin-front-btn").classList.add("active");
-        $("twin-back-btn")?.classList.remove("active");
-    });
-
-    $("twin-back-btn")?.addEventListener("click",()=>{
-        $("twin-back-btn").classList.add("active");
-        $("twin-front-btn")?.classList.remove("active");
-    });
-}
-
-/* ALTERNATIVES */
-function alternativeHTML(){
-
-    const cards=[
-
-        [
-            "Oatmeal Fibre Cookies",
-            "HealthyLife",
-            "82",
-            "Provides 70% less added sugar and over 3x the dietary fibre compared to your scanned biscuits.",
-            [
-                ["Added Sugar","22 g","6 g"],
-                ["Dietary Fibre","2 g","7 g"],
-                ["Saturated Fat","15 g","3 g"]
-            ]
-        ],
-
-        [
-            "Whole Grain Butter Thins",
-            "GrainPantry",
-            "75",
-            "Contains half the sugar content and higher dietary fibre.",
-            [
-                ["Added Sugar","22 g","9 g"],
-                ["Dietary Fibre","2 g","5 g"],
-                ["Saturated Fat","15 g","4.5 g"]
-            ]
-        ]
-
-    ];
-
-    return`
-
-    <section
-        id="better-alternatives-section"
-        class="healthier-alternatives-section">
-
-        <div class="healthier-section-header">
-
-            <div class="healthier-section-title">
-                HEALTHIER ALTERNATIVES IN THIS CATEGORY
-            </div>
-
-            <h2>Better Alternatives</h2>
-
-            <p>
-                Compare the scanned item with alternative products
-                using key nutritional values.
-            </p>
-
-        </div>
-
-        <div class="healthier-alternatives-grid">
-
-            ${cards.map(c=>`
-
-                <article class="healthier-card">
-
-                    <div class="healthier-card-header">
-
-                        <div>
-
-                            <h3>${c[0]}</h3>
-
-                            <p>
-                                By ${c[1]}
-                            </p>
-
-                        </div>
-
-                        <span class="health-score">
-                            Health Score: ${c[2]}
-                        </span>
-
-                    </div>
-
-                    <div class="healthier-description">
-                        ${c[3]}
-                    </div>
-
-                    <div class="healthier-table">
-
-                        <div class="healthier-table-row healthier-table-heading">
-                            <span>Nutrient</span>
-                            <span>Scanned Item</span>
-                            <span>Alternative</span>
-                        </div>
-
-                        ${c[4].map(r=>`
-
-                            <div class="healthier-table-row">
-
-                                <span>${r[0]}</span>
-                                <strong>${r[1]}</strong>
-                                <strong>${r[2]}</strong>
-
+                        <div class="panel-upload-area">
+                            <div class="upload-icon-circle">
+                                <i class="fa-solid fa-arrow-up-from-bracket"></i>
                             </div>
 
-                        `).join("")}
+                            <span class="upload-link">Click to upload</span>
+                        </div>
 
+                        <input type="file" accept="image/*" class="panel-input" hidden>
                     </div>
 
-                </article>
+                    <div class="panel-card" data-panel="back">
+                        <span class="panel-name">BACK PANEL</span>
 
-            `).join("")}
+                        <div class="panel-upload-area">
+                            <div class="upload-icon-circle">
+                                <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                            </div>
+
+                            <span class="upload-link">Click to upload</span>
+                        </div>
+
+                        <input type="file" accept="image/*" class="panel-input" hidden>
+                    </div>
+
+                    <div class="panel-card" data-panel="left">
+                        <span class="panel-name">LEFT PANEL</span>
+
+                        <div class="panel-upload-area">
+                            <div class="upload-icon-circle">
+                                <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                            </div>
+
+                            <span class="upload-link">Click to upload</span>
+                        </div>
+
+                        <input type="file" accept="image/*" class="panel-input" hidden>
+                    </div>
+
+                    <div class="panel-card" data-panel="right">
+                        <span class="panel-name">RIGHT PANEL</span>
+
+                        <div class="panel-upload-area">
+                            <div class="upload-icon-circle">
+                                <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                            </div>
+
+                            <span class="upload-link">Click to upload</span>
+                        </div>
+
+                        <input type="file" accept="image/*" class="panel-input" hidden>
+                    </div>
+
+                </div>
+
+                <div class="audit-action-row">
+                    <button class="btn-audit" id="run-audit-btn">
+                        Start Inspection
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+
+            </div>
+
+            <div id="pipeline-container" style="display:none"></div>
+
+        </section>
+
+        <!-- RESULTS -->
+        <section id="view-results" class="app-view" style="display:none"></section>
+
+       <!-- VIEW: LABEL SANDBOX -->
+<div id="view-sandbox" class="app-view" style="display:none;">
+
+    <div class="page-title">
+        <h1>Label Sandbox Simulator</h1>
+        <p>Audit label textual configurations prior to manufacturing print cycles.</p>
+    </div>
+
+    <div class="sandbox-grid">
+
+        <!-- CONFIGURE ATTRIBUTES -->
+        <div class="card sandbox-config">
+
+            <h3 class="section-heading">CONFIGURE ATTRIBUTES</h3>
+
+            <div class="form-group">
+                <label>Commodity Type</label>
+                <select id="sb-type" class="sandbox-input">
+                    <option>Food Product (FSSAI License)</option>
+                    <option>Cosmetics / Beauty Cream</option>
+                    <option>Electronics (Specifications)</option>
+                    <option>General Commodities</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Product Name</label>
+                <input id="sb-product-name" class="sandbox-input" placeholder="Enter product name">
+            </div>
+
+            <div class="form-group">
+                <label>MRP</label>
+                <input id="sb-mrp" class="sandbox-input" placeholder="₹ 99.00">
+            </div>
+
+            <div class="form-group">
+                <label>Net Quantity</label>
+                <input id="sb-net-qty" class="sandbox-input" placeholder="100 g / 500 ml">
+            </div>
+
+            <div class="form-group">
+                <label>Manufacture Date</label>
+                <input id="sb-mfg-date" class="sandbox-input" placeholder="DD/MM/YYYY">
+            </div>
+
+            <div class="form-group">
+                <label>Manufacturer Details</label>
+                <textarea id="sb-mfg-details" class="sandbox-input" rows="3"
+                    placeholder="Manufacturer name and address"></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Consumer Care</label>
+                <input id="sb-consumer-care" class="sandbox-input"
+                    placeholder="Helpline / Email">
+            </div>
+
+            <div class="form-group">
+                <label>FSSAI License</label>
+                <input id="sb-fssai" class="sandbox-input"
+                    placeholder="FSSAI License Number">
+            </div>
+
+            <div class="form-group">
+                <label>Ingredients</label>
+                <textarea id="sb-ingredients" class="sandbox-input" rows="2"
+                    placeholder="List ingredients"></textarea>
+            </div>
+
+            <div class="nutrition-grid">
+
+                <div class="form-group">
+                    <label>Energy</label>
+                    <input id="sb-energy" class="sandbox-input" placeholder="kcal">
+                </div>
+
+                <div class="form-group">
+                    <label>Sugar</label>
+                    <input id="sb-sugar" class="sandbox-input" placeholder="g">
+                </div>
+
+                <div class="form-group">
+                    <label>Sat Fat</label>
+                    <input id="sb-sat-fat" class="sandbox-input" placeholder="g">
+                </div>
+
+                <div class="form-group">
+                    <label>Sodium</label>
+                    <input id="sb-sodium" class="sandbox-input" placeholder="mg">
+                </div>
+
+                <div class="form-group">
+                    <label>Protein</label>
+                    <input id="sb-protein" class="sandbox-input" placeholder="g">
+                </div>
+
+                <div class="form-group">
+                    <label>Fibre</label>
+                    <input id="sb-fibre" class="sandbox-input" placeholder="g">
+                </div>
+
+            </div>
+
+            <button type="button"
+                    class="btn-primary w-full mt-4"
+                    id="simulate-score-btn">
+
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                Simulate Compliance Score
+
+            </button>
 
         </div>
 
-    </section>
+        <!-- SIMULATOR -->
+        <div class="card sandbox-result-card">
 
-    `;
-}
+            <h2>Sandbox Simulator</h2>
 
-/* =========================================================
-   LABEL SANDBOX ONLY
-========================================================= */
+            <p class="sandbox-description">
+                Adjust fields and simulate checks to update score rates.
+            </p>
 
-function initSandbox() {
-
-    const simulateBtn =
-        document.getElementById("simulate-score-btn");
-
-    if (!simulateBtn) return;
-
-    renderSandboxResults();
-
-    simulateBtn.addEventListener("click", () => {
-
-        const original =
-            simulateBtn.innerHTML;
-
-        simulateBtn.disabled = true;
-
-        simulateBtn.innerHTML = `
-            <i class="fa-solid fa-spinner fa-spin"></i>
-            Simulating...
-        `;
-
-        setTimeout(() => {
-
-            renderSandboxResults();
-
-            simulateBtn.disabled = false;
-            simulateBtn.innerHTML = original;
-
-        }, 500);
-    });
-}
-
-
-function renderSandboxResults() {
-
-    const list =
-        document.getElementById("sb-verification-list");
-
-    if (!list) return;
-
-    const fields = [
-        ["Product Name", "sb-product-name", true],
-        ["MRP", "sb-mrp", true],
-        ["Net Quantity", "sb-net-qty", true],
-        ["Manufacture Date", "sb-mfg-date", true],
-        ["Manufacturer Details", "sb-mfg-details", true],
-        ["Consumer Care", "sb-consumer-care", true],
-        ["FSSAI License", "sb-fssai", false],
-        ["Ingredients", "sb-ingredients", false],
-        ["Energy", "sb-energy", false],
-        ["Sugar", "sb-sugar", false],
-        ["Sat Fat", "sb-sat-fat", false],
-        ["Sodium", "sb-sodium", false],
-        ["Protein", "sb-protein", false],
-        ["Fibre", "sb-fibre", false]
-    ];
-
-    const type =
-        document.getElementById("sb-type")?.value || "";
-
-    let score = 100;
-
-    const rows = fields.map(([name, id, required]) => {
-
-        const value =
-            document.getElementById(id)?.value.trim() || "";
-
-        let passed = true;
-
-        if (required && !value) {
-            passed = false;
-            score -= 10;
-        }
-
-        if (
-            type === "Food Product (FSSAI License)" &&
-            name === "FSSAI License" &&
-            !value
-        ) {
-            passed = false;
-            score -= 5;
-        }
-
-        return `
-            <div class="verification-item ${passed ? "" : "failed"}">
+            <div class="score-card">
 
                 <div>
-                    <p class="v-item-title">
-                        ${escapeHtml(name)}
-                    </p>
-
-                    <p class="v-item-desc">
-                        ${
-                            value
-                                ? `Configured: ${escapeHtml(value)}`
-                                : "Field not configured."
-                        }
-                    </p>
+                    <span class="metric-label">COMPLIANCE SCORE</span>
+                    <div class="score-value" id="sb-comp-score">100%</div>
                 </div>
 
-                <span class="status-badge ${
-                    passed ? "badge-pass" : "badge-fail"
-                }">
-                    ${passed ? "PASSED" : "FAILED"}
-                </span>
+                <strong id="sb-comp-status" class="text-green">
+                    COMPLIANT
+                </strong>
 
             </div>
-        `;
-    }).join("");
 
-    const finalScore =
-        Math.max(0, score);
+            <div id="sb-verification-list" class="verification-list"></div>
 
-    const scoreEl =
-        document.getElementById("sb-comp-score");
+        </div>
 
-    const statusEl =
-        document.getElementById("sb-comp-status");
+    </div>
 
-    if (scoreEl) {
-        scoreEl.textContent =
-            `${finalScore}%`;
-    }
+</div>
+        <!-- RULES -->
+        <section id="view-rules" class="app-view" style="display:none">
 
-    if (statusEl) {
+            <div class="page-title">
+                <h1>Legal Rules Matrix</h1>
+                <p>Packaged Commodities Regulations Reference.</p>
+            </div>
 
-        if (finalScore >= 80) {
-            statusEl.textContent = "COMPLIANT";
-            statusEl.className = "text-green";
-        }
+            <div class="card rules-card">
 
-        else if (finalScore >= 50) {
-            statusEl.textContent = "MODERATE";
-            statusEl.className = "text-orange";
-        }
+                <ul>
 
-        else {
-            statusEl.textContent = "NON-COMPLIANT";
-            statusEl.className = "text-red";
-        }
-    }
+                    <li>
+                        <strong>LEGAL-01:</strong>
+                        Mandatory declaration of Generic or Common Name.
+                    </li>
 
-    list.innerHTML = rows;
-}
+                    <li>
+                        <strong>LEGAL-02:</strong>
+                        Name and full address of Manufacturer / Packer / Importer.
+                    </li>
+
+                    <li>
+                        <strong>LEGAL-03:</strong>
+                        Correct Net Quantity units.
+                    </li>
+
+                    <li>
+                        <strong>LEGAL-04:</strong>
+                        Maximum Retail Price declaration including taxes.
+                    </li>
+
+                    <li>
+                        <strong>LEGAL-05:</strong>
+                        Consumer Care contact details / Helpline.
+                    </li>
+
+                </ul>
+
+            </div>
+
+        </section>
+
+    </div>
+</main>
+
+</div>
+
+</body>
+</html>
